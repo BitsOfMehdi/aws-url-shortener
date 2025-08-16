@@ -1,0 +1,19 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Local env
+.env
+.env.*
+
+# AWS SAM / Local builds
+.aws-sam/
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
