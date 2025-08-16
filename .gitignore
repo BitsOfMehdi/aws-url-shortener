@@ -17,3 +17,6 @@ Thumbs.db
 
 # VS Code
 .vscode/
+
+# Ignore all Lambda deployment zips
+*.zip
