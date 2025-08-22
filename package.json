@@ -1,12 +1,31 @@
 {
   "name": "aws-url-shortener",
   "version": "1.0.0",
-  "description": "",
+  "description": "AWS URL Shortener with Lambda and DynamoDB",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start:localstack": "docker-compose up -d",
+    "stop:localstack": "docker-compose down",
+    "setup:local": "source local-env.sh && chmod +x scripts/sync-to-local.sh",
+    "sync:aws": "scripts/sync-to-local.sh",
+    "build:local": "sam build --template template-local.yaml",
+    "deploy:local": "sam local start-api --template template-local.yaml --env-vars local-env.json",
+    "test:local": "npm run build:local && npm run deploy:local",
+    "install:deps": "cd lambdas/createShortUrl && cp package.dev.json package.json && npm install && cd ../redirect && cp package.dev.json package.json && npm install && cd ../getStats && cp package.dev.json package.json && npm install",
+    "install:prod": "cd lambdas/createShortUrl && cp package.json package.dev.json && echo '{}' > package.json && cd ../redirect && cp package.json package.dev.json && echo '{}' > package.json && cd ../getStats && cp package.json package.dev.json && echo '{}' > package.json",
+    "clean": "rm -rf .aws-sam && rm -rf lambdas/*/node_modules"
   },
-  "keywords": [],
+  "keywords": [
+    "aws",
+    "lambda",
+    "dynamodb",
+    "url-shortener",
+    "serverless"
+  ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.490.0",
+    "@aws-sdk/lib-dynamodb": "^3.490.0"
+  }
 }

@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  aws-url-shortener - Local Development Template
+
+Globals:
+  Function:
+    Timeout: 30
+    Environment:
+      Variables:
+        DYNAMODB_TABLE: !Ref UrlTable
+    LoggingConfig:
+      LogFormat: JSON
+
+Resources:
+  # DynamoDB Table for URL shortener
+  UrlTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: url-shortener-table
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: shortId
+          AttributeType: S
+        - AttributeName: originalUrl
+          AttributeType: S
+      KeySchema:
+        - AttributeName: shortId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: OriginalUrlIndex
+          KeySchema:
+            - AttributeName: originalUrl
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Lambda function to create short URLs
+  CreateShortUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/createShortUrl/
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      Events:
+        CreateShortUrl:
+          Type: Api
+          Properties:
+            Path: /shorten
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UrlTable
+
+  # Lambda function to redirect short URLs
+  RedirectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/redirect/
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      Events:
+        Redirect:
+          Type: Api
+          Properties:
+            Path: /{shortId}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UrlTable
+
+  # Lambda function to get URL statistics
+  GetStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/getStats/
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      Events:
+        GetStats:
+          Type: Api
+          Properties:
+            Path: /stats/{shortId}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UrlTable
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  
+  DynamoDBTableName:
+    Description: DynamoDB table name
+    Value: !Ref UrlTable
