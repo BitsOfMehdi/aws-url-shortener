@@ -209,6 +209,24 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/osx,node,linux,windows,sam
 
+# AWS / SAM sensitive configs
+.env
+*.env
+config.json
+.aws/
+.sam/
+
+# Cursor IDE
+.cursor/
+
+# Logs & temp
+*.log
+__pycache__/
+node_modules/
+
+# Safe templates (keep these committed)
+!config.example.json
+
 # LocalStack
 localstack/
 volume/

@@ -1,18 +1,17 @@
 {
   "name": "aws-url-shortener",
   "version": "1.0.0",
-  "description": "AWS URL Shortener with Lambda and DynamoDB",
+  "description": "AWS URL Shortener with Lambda and DynamoDB - Local Development",
   "main": "index.js",
   "scripts": {
-    "start:localstack": "docker-compose up -d",
-    "stop:localstack": "docker-compose down",
-    "setup:local": "source local-env.sh && chmod +x scripts/sync-to-local.sh",
-    "sync:aws": "scripts/sync-to-local.sh",
-    "build:local": "sam build --template template-local.yaml",
-    "deploy:local": "sam local start-api --template template-local.yaml --env-vars local-env.json",
-    "test:local": "npm run build:local && npm run deploy:local",
-    "install:deps": "cd lambdas/createShortUrl && cp package.dev.json package.json && npm install && cd ../redirect && cp package.dev.json package.json && npm install && cd ../getStats && cp package.dev.json package.json && npm install",
-    "install:prod": "cd lambdas/createShortUrl && cp package.json package.dev.json && echo '{}' > package.json && cd ../redirect && cp package.json package.dev.json && echo '{}' > package.json && cd ../getStats && cp package.json package.dev.json && echo '{}' > package.json",
+    "pull:lambda": "PROFILE=default REGION=us-east-1 ./scripts/pull_lambda.sh urlShortenHandler urlRedirectHandler",
+    "build": "sam build --use-container",
+    "start:api": "sam local start-api",
+    "test:functions": "npm run build && npm run start:api",
+    "invoke:shorten": "sam local invoke urlShortenHandler -e events/sample.json",
+    "invoke:redirect": "sam local invoke urlRedirectHandler -e events/redirect-sample.json",
+    "install:deps": "cd lambdas/urlShortenHandler && cp package.dev.json package.json && npm install && cd ../urlRedirectHandler && cp package.dev.json package.json && npm install",
+    "install:prod": "cd lambdas/urlShortenHandler && cp package.json package.dev.json && echo '{}' > package.json && cd ../urlRedirectHandler && cp package.json package.dev.json && echo '{}' > package.json",
     "clean": "rm -rf .aws-sam && rm -rf lambdas/*/node_modules"
   },
   "keywords": [
@@ -20,7 +19,8 @@
     "lambda",
     "dynamodb",
     "url-shortener",
-    "serverless"
+    "serverless",
+    "local-development"
   ],
   "author": "",
   "license": "ISC",

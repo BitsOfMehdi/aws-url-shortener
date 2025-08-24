@@ -1,26 +1,50 @@
+version: "3.9"
+
 services:
   localstack:
     container_name: "${LOCALSTACK_DOCKER_NAME-localstack_main}"
     image: localstack/localstack:latest
+    restart: unless-stopped
+
+    # Resource caps (requires the --compatibility flag when you start compose)
+    deploy:
+      resources:
+        limits:
+          cpus: "2"      # max 2 CPU cores
+          memory: 2g     # max 2 GB RAM
+
     ports:
       - "127.0.0.1:4566:4566"            # LocalStack Gateway
       - "127.0.0.1:4510-4559:4510-4559"  # external services port range
+
     environment:
+      # Logging & region
       - DEBUG=${DEBUG-}
-      - DOCKER_HOST=unix:///var/run/docker.sock
+      - LS_LOG=info
       - AWS_DEFAULT_REGION=us-east-1
+
+      # Services to enable
       - SERVICES=lambda,dynamodb,s3,apigateway,cloudformation
+
+      # Lambda execution via Docker on the host
       - LAMBDA_EXECUTOR=docker
       - LAMBDA_REMOTE_DOCKER=false
-      - DATA_DIR=/tmp/localstack/data
+
+      # Persistence (keep state between restarts). LocalStack v2+ prefers /var/lib/localstack
       - PERSISTENCE=1
-      - PERSISTENCE_PATH=/tmp/localstack/data
-      - DOCKER_FLAGS=-v /var/run/docker.sock:/var/run/docker.sock
+
+      # Expose host docker to LocalStack so it can spin Lambda containers
+      - DOCKER_HOST=unix:///var/run/docker.sock
+
     volumes:
+      # Persist LocalStack state
       - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      # Allow LocalStack to start Docker containers for Lambda
       - "/var/run/docker.sock:/var/run/docker.sock"
+
     networks:
       - localstack_network
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s
