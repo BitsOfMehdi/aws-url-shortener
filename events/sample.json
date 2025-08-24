@@ -1,0 +1,11 @@
+{
+  "body": "{\"url\": \"https://example.com\"}",
+  "httpMethod": "POST",
+  "path": "/",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "requestContext": {
+    "domainName": "localhost:3000"
+  }
+}

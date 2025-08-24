@@ -1,12 +1,31 @@
 {
   "name": "aws-url-shortener",
   "version": "1.0.0",
-  "description": "",
+  "description": "AWS URL Shortener with Lambda and DynamoDB - Local Development",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "pull:lambda": "PROFILE=default REGION=us-east-1 ./scripts/pull_lambda.sh urlShortenHandler urlRedirectHandler",
+    "build": "sam build --use-container",
+    "start:api": "sam local start-api",
+    "test:functions": "npm run build && npm run start:api",
+    "invoke:shorten": "sam local invoke urlShortenHandler -e events/sample.json",
+    "invoke:redirect": "sam local invoke urlRedirectHandler -e events/redirect-sample.json",
+    "install:deps": "cd lambdas/urlShortenHandler && cp package.dev.json package.json && npm install && cd ../urlRedirectHandler && cp package.dev.json package.json && npm install",
+    "install:prod": "cd lambdas/urlShortenHandler && cp package.json package.dev.json && echo '{}' > package.json && cd ../urlRedirectHandler && cp package.json package.dev.json && echo '{}' > package.json",
+    "clean": "rm -rf .aws-sam && rm -rf lambdas/*/node_modules"
   },
-  "keywords": [],
+  "keywords": [
+    "aws",
+    "lambda",
+    "dynamodb",
+    "url-shortener",
+    "serverless",
+    "local-development"
+  ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.490.0",
+    "@aws-sdk/lib-dynamodb": "^3.490.0"
+  }
 }

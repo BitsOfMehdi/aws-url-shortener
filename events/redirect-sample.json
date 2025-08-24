@@ -1,0 +1,13 @@
+{
+  "httpMethod": "GET",
+  "path": "/test123",
+  "pathParameters": {
+    "id": "test123"
+  },
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "requestContext": {
+    "domainName": "localhost:3000"
+  }
+}

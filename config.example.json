@@ -1,0 +1,17 @@
+{
+  "handlers": {
+    "urlShortenHandler": {
+      "runtime": "nodejs18.x",
+      "handler": "lambdas/urlShortenHandler.handler"
+    },
+    "urlRedirectHandler": {
+      "runtime": "nodejs18.x", 
+      "handler": "lambdas/urlRedirectHandler.handler"
+    }
+  },
+  "environment": {
+    "AWS_PROFILE": "default",
+    "AWS_REGION": "us-east-1",
+    "CUSTOM_VAR": "value"
+  }
+}
