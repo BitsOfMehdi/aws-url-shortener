@@ -12,7 +12,12 @@
     "invoke:redirect": "sam local invoke urlRedirectHandler -e events/redirect-sample.json",
     "install:deps": "cd lambdas/urlShortenHandler && cp package.dev.json package.json && npm install && cd ../urlRedirectHandler && cp package.dev.json package.json && npm install",
     "install:prod": "cd lambdas/urlShortenHandler && cp package.json package.dev.json && echo '{}' > package.json && cd ../urlRedirectHandler && cp package.json package.dev.json && echo '{}' > package.json",
-    "clean": "rm -rf .aws-sam && rm -rf lambdas/*/node_modules"
+    "clean": "rm -rf .aws-sam && rm -rf lambdas/*/node_modules",
+    "ddb:start": "./scripts/dynamodb-local.sh",
+    "ddb:create": "./scripts/ddb-create-local.sh",
+    "ddb:seed": "./scripts/ddb-seed-local.sh",
+    "ddb:reset": "aws dynamodb delete-table --table-name UrlsTable --endpoint-url ${DDB_ENDPOINT:-http://127.0.0.1:8000} || true && npm run ddb:create && npm run ddb:seed",
+    "ddb:inspect": "./scripts/ddb-inspect.sh"
   },
   "keywords": [
     "aws",

@@ -2,7 +2,36 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Minimal local lambda setup
 
+Parameters:
+  TableName:
+    Type: String
+    Default: UrlsTable
+  UrlIndexName:
+    Type: String
+    Default: UrlIndex
+
 Resources:
+  UrlsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: url
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: !Ref UrlIndexName
+          KeySchema:
+            - AttributeName: url
+              KeyType: HASH
+          Projection:
+            ProjectionType: KEYS_ONLY
+
   UrlShortenFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -10,6 +39,21 @@ Resources:
       Handler: lambdas/urlShortenHandler.handler
       Runtime: nodejs18.x
       CodeUri: ./lambdas/
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+          URL_INDEX_NAME: !Ref UrlIndexName
+          DDB_ENDPOINT: ""  # set via .env only for local
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt UrlsTable.Arn
+                - !Sub "${UrlsTable.Arn}/index/${UrlIndexName}"
       Events:
         ShortenAPI:
           Type: Api
@@ -24,6 +68,18 @@ Resources:
       Handler: lambdas/urlRedirectHandler.handler
       Runtime: nodejs18.x
       CodeUri: ./lambdas/
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+          URL_INDEX_NAME: !Ref UrlIndexName
+          DDB_ENDPOINT: ""
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource: !GetAtt UrlsTable.Arn
       Events:
         RedirectAPI:
           Type: Api

@@ -1,0 +1,7 @@
+{
+  "UrlsTable": [
+    {"PutRequest": {"Item": {"id": {"S": "abc123"}, "url": {"S": "https://example.com"}, "createdAt": {"S": "2025-08-26T13:00:00Z"}}}},
+    {"PutRequest": {"Item": {"id": {"S": "goaws"},  "url": {"S": "https://aws.amazon.com"},  "createdAt": {"S": "2025-08-26T13:05:00Z"}}}},
+    {"PutRequest": {"Item": {"id": {"S": "gh"},     "url": {"S": "https://github.com"},      "createdAt": {"S": "2025-08-26T13:10:00Z"}}}}
+  ]
+}
