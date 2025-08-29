@@ -2,7 +2,54 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Minimal local lambda setup
 
+Parameters:
+  TableName:
+    Type: String
+    Default: UrlsTable
+  UrlIndexName:
+    Type: String
+    Default: UrlIndex
+
 Resources:
+  HttpApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+
+  MyHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowOrigins: ["*"]   # tighten for prod later
+        AllowMethods: ["GET", "POST", "OPTIONS"]
+        AllowHeaders: ["Content-Type"]
+      AccessLogSettings:
+        DestinationArn: !GetAtt HttpApiLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","httpMethod":"$context.httpMethod","path":"$context.path","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","requestTime":"$context.requestTime"}
+
+  UrlsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: url
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: !Ref UrlIndexName
+          KeySchema:
+            - AttributeName: url
+              KeyType: HASH
+          Projection:
+            ProjectionType: KEYS_ONLY
+
   UrlShortenFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -10,12 +57,28 @@ Resources:
       Handler: lambdas/urlShortenHandler.handler
       Runtime: nodejs18.x
       CodeUri: ./lambdas/
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+          URL_INDEX_NAME: !Ref UrlIndexName
+          DDB_ENDPOINT: ""  # set via .env only for local
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt UrlsTable.Arn
+                - !Sub "${UrlsTable.Arn}/index/${UrlIndexName}"
       Events:
-        ShortenAPI:
-          Type: Api
+        Shorten:
+          Type: HttpApi
           Properties:
+            ApiId: !Ref MyHttpApi
             Path: /
-            Method: post
+            Method: POST
 
   UrlRedirectFunction:
     Type: AWS::Serverless::Function
@@ -24,9 +87,27 @@ Resources:
       Handler: lambdas/urlRedirectHandler.handler
       Runtime: nodejs18.x
       CodeUri: ./lambdas/
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+          URL_INDEX_NAME: !Ref UrlIndexName
+          DDB_ENDPOINT: ""
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource: !GetAtt UrlsTable.Arn
       Events:
-        RedirectAPI:
-          Type: Api
+        Redirect:
+          Type: HttpApi
           Properties:
+            ApiId: !Ref MyHttpApi
             Path: /{id}
-            Method: get
+            Method: GET
+
+Outputs:
+  HttpApiUrl:
+    Description: Base URL for the HTTP API ($default stage)
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
