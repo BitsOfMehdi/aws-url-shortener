@@ -11,6 +11,24 @@ Parameters:
     Default: UrlIndex
 
 Resources:
+  HttpApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+
+  MyHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowOrigins: ["*"]   # tighten for prod later
+        AllowMethods: ["GET", "POST", "OPTIONS"]
+        AllowHeaders: ["Content-Type"]
+      AccessLogSettings:
+        DestinationArn: !GetAtt HttpApiLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","httpMethod":"$context.httpMethod","path":"$context.path","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","requestTime":"$context.requestTime"}
+
   UrlsTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -55,11 +73,12 @@ Resources:
                 - !GetAtt UrlsTable.Arn
                 - !Sub "${UrlsTable.Arn}/index/${UrlIndexName}"
       Events:
-        ShortenAPI:
-          Type: Api
+        Shorten:
+          Type: HttpApi
           Properties:
+            ApiId: !Ref MyHttpApi
             Path: /
-            Method: post
+            Method: POST
 
   UrlRedirectFunction:
     Type: AWS::Serverless::Function
@@ -81,8 +100,14 @@ Resources:
                 - dynamodb:GetItem
               Resource: !GetAtt UrlsTable.Arn
       Events:
-        RedirectAPI:
-          Type: Api
+        Redirect:
+          Type: HttpApi
           Properties:
+            ApiId: !Ref MyHttpApi
             Path: /{id}
-            Method: get
+            Method: GET
+
+Outputs:
+  HttpApiUrl:
+    Description: Base URL for the HTTP API ($default stage)
+    Value: !Sub "https://${MyHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
