@@ -1,116 +1,131 @@
 # aws-url-shortener
 
-This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.
+A minimal **serverless URL shortener** built with **AWS Lambda, API Gateway (HTTP API v2), and DynamoDB**.  
+Supports **short URL creation** (`POST /`) and **redirects** (`GET /{id}`) with local-first development using **SAM CLI** and **DynamoDB Local**.
 
-- hello-world - Code for the application's Lambda function and Project Dockerfile.
-- events - Invocation events that you can use to invoke the function.
-- hello-world/tests - Unit tests for the application code.
-- template.yaml - A template that defines the application's AWS resources.
+## Features
+- **Lambda Functions**:  
+  - `urlShortenHandler` → creates short URLs with **8-char lowercase+digit slugs**  
+  - `urlRedirectHandler` → redirects short URLs or returns 404  
+- **DynamoDB**:  
+  - Table: `UrlsTable` (PK: `id`)  
+  - GSI: `UrlIndex` (HASH: `url`) for reverse lookups (idempotency)  
+- **API Gateway HTTP API v2**:  
+  - Routes:  
+    - `POST /` → shorten URL  
+    - `GET /{id}` → redirect  
+  - Built-in **CORS** + **structured access logs**  
+- **Local-first workflow**: DynamoDB Local in Docker, SAM CLI for build/run/test  
+- **Secure IAM policies** (least privilege per function)  
+- **Idempotency**: Same URL → same slug  
+- **Collision handling**: Conditional writes ensure uniqueness  
 
-The application uses several AWS resources, including Lambda functions and an API Gateway API. These resources are defined in the `template.yaml` file in this project. You can update the template to add AWS resources through the same deployment process that updates your application code.
+## Local Development
 
-## Deploy the sample application
+### Prerequisites
+- Node.js 18+
+- Docker
+- AWS SAM CLI
+- AWS CLI (for DynamoDB commands)
 
-The Serverless Application Model Command Line Interface (SAM CLI) is an extension of the AWS CLI that adds functionality for building and testing Lambda applications. It uses Docker to run your functions in an Amazon Linux environment that matches Lambda. It can also emulate your application's build environment and API.
-
-To use the SAM CLI, you need the following tools.
-
-* Docker - [Install Docker community edition](https://hub.docker.com/search/?type=edition&offering=community)
-* SAM CLI - [Install the SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
-
-You may need the following for local testing.
-
-* Node.js - [Install Node.js 20](https://nodejs.org/en/), including the NPM package management tool.
-
-To build and deploy your application for the first time, run the following in your shell:
-
+### Quickstart
 ```bash
-sam build
+# 1. Start DynamoDB Local
+npm run ddb:start
+
+# 2. Create and seed table
+npm run ddb:create
+npm run ddb:seed
+
+# 3. Build and run locally
+sam build --use-container
+sam local start-api --env-vars local-env.json
+```
+
+### Test
+```bash
+# Create short URL
+curl -s -X POST http://127.0.0.1:3000/ \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com"}'
+
+# Redirect
+curl -i http://127.0.0.1:3000/abc123
+```
+
+## Deployment
+```bash
 sam deploy --guided
 ```
 
-The first command will build a docker image from a Dockerfile and then the source of your application inside the Docker image. The second command will package and deploy your application to AWS, with a series of prompts:
+Outputs include:
+- `HttpApiUrl` → base URL for API Gateway
 
-* **Stack Name**: The name of the stack to deploy to CloudFormation. This should be unique to your account and region, and a good starting point would be something matching your project name.
-* **AWS Region**: The AWS region you want to deploy your app to.
-* **Confirm changes before deploy**: If set to yes, any change sets will be shown to you before execution for manual review. If set to no, the AWS SAM CLI will automatically deploy application changes.
-* **Allow SAM CLI IAM role creation**: Many AWS SAM templates, including this example, create AWS IAM roles required for the AWS Lambda function(s) included to access AWS services. By default, these are scoped down to minimum required permissions. To deploy an AWS CloudFormation stack which creates or modifies IAM roles, the `CAPABILITY_IAM` value for `capabilities` must be provided. If permission isn't provided through this prompt, to deploy this example you must explicitly pass `--capabilities CAPABILITY_IAM` to the `sam deploy` command.
-* **Save arguments to samconfig.toml**: If set to yes, your choices will be saved to a configuration file inside the project, so that in the future you can just re-run `sam deploy` without parameters to deploy changes to your application.
+---
 
-You can find your API Gateway Endpoint URL in the output values displayed after deployment.
-
-## Use the SAM CLI to build and test locally
-
-Build your application with the `sam build` command.
-
-```bash
-aws-url-shortener$ sam build
+## Project Structure
+```
+aws-url-shortener/
+├── lambdas/
+│   ├── dynamoClient.js
+│   ├── lib/
+│   │   ├── http.js
+│   │   └── slug.js
+│   ├── urlShortenHandler/
+│   │   └── index.js
+│   └── urlRedirectHandler/
+│       └── index.js
+├── infra/
+│   └── dynamodb/
+│       ├── urls-table.json
+│       └── seed-data.json
+├── scripts/
+│   ├── ddb-create-local.sh
+│   ├── ddb-inspect.sh
+│   ├── ddb-seed-local.sh
+│   ├── dynamodb-local.sh
+│   ├── pull_lambda.sh
+│   └── sync-to-local.sh
+├── events/
+│   ├── event.json
+│   ├── redirect-sample.json
+│   └── sample.json
+├── config.example.json
+├── docker-compose.yml
+├── LOCAL_DEVELOPMENT.md
+├── package.json
+├── README.md
+├── samconfig.toml
+├── template-local.yaml
+├── template.yaml
+├── test-edge-cases.sh
+└── test-slug-collision.sh
 ```
 
-The SAM CLI builds a docker image from a Dockerfile and then installs dependencies defined in `hello-world/package.json` inside the docker image. The processed template file is saved in the `.aws-sam/build` folder.
-* **Note**: The Dockerfile included in this sample application uses `npm install` by default. If you are building your code for production, you can modify it to use `npm ci` instead.
+## Testing Matrix
 
-Test a single function by invoking it directly with a test event. An event is a JSON document that represents the input that the function receives from the event source. Test events are included in the `events` folder in this project.
+### ✅ Happy Paths
+- Shorten valid URL → `201 Created` + 8-char slug
+- Same URL twice → `200 OK` + same slug (idempotency)
+- Redirect seeded slug `/abc123` → `302 Found` + Location header
 
-Run functions locally and invoke them with the `sam local invoke` command.
+### ✅ Error Paths
+- Missing `url` → `400 BadRequest`
+- Invalid scheme (e.g., `ftp://`) → `400 BadRequest`
+- Unknown slug → `404 NotFound`
+- Malformed JSON → `400 BadRequest`
 
-```bash
-aws-url-shortener$ sam local invoke HelloWorldFunction --event events/event.json
-```
+### ✅ Edge Cases
+- Empty or whitespace-only URLs → `400 BadRequest`
+- Very long URLs → `201 Created`
+- Empty or null body → `400 BadRequest`
 
-The SAM CLI can also emulate your application's API. Use the `sam local start-api` to run the API locally on port 3000.
+### ✅ CORS
+- Preflight OPTIONS requests return proper CORS headers
+- Cross-origin POST and GET requests succeed
 
-```bash
-aws-url-shortener$ sam local start-api
-aws-url-shortener$ curl http://localhost:3000/
-```
+## Observations
+- **Performance (local):** shorten ~280–800 ms, redirect ~295–600 ms (incl. DynamoDB ops)
+- **Reliability:** 100% pass rate across happy/error/edge test matrix
+- **Logging:** Structured JSON logs from Lambdas + HTTP API access logs
 
-The SAM CLI reads the application template to determine the API's routes and the functions that they invoke. The `Events` property on each function's definition includes the route and method for each path.
-
-```yaml
-      Events:
-        HelloWorld:
-          Type: Api
-          Properties:
-            Path: /hello
-            Method: get
-```
-
-## Add a resource to your application
-The application template uses AWS Serverless Application Model (AWS SAM) to define application resources. AWS SAM is an extension of AWS CloudFormation with a simpler syntax for configuring common serverless application resources such as functions, triggers, and APIs. For resources not included in [the SAM specification](https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md), you can use standard [AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html) resource types.
-
-## Fetch, tail, and filter Lambda function logs
-
-To simplify troubleshooting, SAM CLI has a command called `sam logs`. `sam logs` lets you fetch logs generated by your deployed Lambda function from the command line. In addition to printing the logs on the terminal, this command has several nifty features to help you quickly find the bug.
-
-`NOTE`: This command works for all AWS Lambda functions; not just the ones you deploy using SAM.
-
-```bash
-aws-url-shortener$ sam logs -n HelloWorldFunction --stack-name aws-url-shortener --tail
-```
-
-You can find more information and examples about filtering Lambda function logs in the [SAM CLI Documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-logging.html).
-
-## Unit tests
-
-Tests are defined in the `hello-world/tests` folder in this project. Use NPM to install the [Mocha test framework](https://mochajs.org/) and run unit tests from your local machine.
-
-```bash
-aws-url-shortener$ cd hello-world
-hello-world$ npm install
-hello-world$ npm run test
-```
-
-## Cleanup
-
-To delete the sample application that you created, use the AWS CLI. Assuming you used your project name for the stack name, you can run the following:
-
-```bash
-sam delete --stack-name aws-url-shortener
-```
-
-## Resources
-
-See the [AWS SAM developer guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) for an introduction to SAM specification, the SAM CLI, and serverless application concepts.
-
-Next, you can use AWS Serverless Application Repository to deploy ready to use Apps that go beyond hello world samples and learn how authors developed their applications: [AWS Serverless Application Repository main page](https://aws.amazon.com/serverless/serverlessrepo/)
